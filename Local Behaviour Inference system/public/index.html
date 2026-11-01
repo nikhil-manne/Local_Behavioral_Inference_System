@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pulse - System Control Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+  <script src="index.js" defer></script>
+</head>
+
+<body>
+  <!-- Main Glassmorphic Container -->
+  <div class="app-container">
+
+    <!-- Left Sidebar: Settings, Directory Config, Stats -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo-circle">
+          <div class="pulse-ring"></div>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="logo-icon">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </div>
+        <h1>PULSE</h1>
+        <span class="brand-subtitle">System Portal</span>
+      </div>
+
+      <!-- Freddy Bot Control -->
+      <div class="panel-section" style="margin-top: 10px; margin-bottom: 10px;">
+        <button class="btn btn-secondary" id="btn-toggle-avatar" style="width: 100%; text-align: center;">Disable Freddy</button>
+      </div>
+
+      <!-- Quick Stats -->
+      <div class="panel-section">
+        <h3>System Inventory</h3>
+        <div class="stats-grid">
+          <div class="stat-card" data-type="all">
+            <span class="stat-num" id="stat-total">0</span>
+            <span class="stat-label">Total Items</span>
+          </div>
+          <div class="stat-card" data-type="app">
+            <span class="stat-num" id="stat-apps">0</span>
+            <span class="stat-label">Applications</span>
+          </div>
+          <div class="stat-card" data-type="document">
+            <span class="stat-num" id="stat-files">0</span>
+            <span class="stat-label">Documents</span>
+          </div>
+          <div class="stat-card" data-type="folder">
+            <span class="stat-num" id="stat-folders">0</span>
+            <span class="stat-label">Folders</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Directory Scanning Setup -->
+      <div class="panel-section">
+        <h3>Directory Scanner</h3>
+        <div class="directory-list" id="directory-list">
+          <!-- Dynamically populated scanned dirs -->
+        </div>
+
+        <form class="add-dir-form" id="add-dir-form">
+          <h4>Index Custom Directory</h4>
+          <input type="text" id="dir-path" placeholder="C:\Path\To\Scan" required>
+          <div class="form-row">
+            <input type="text" id="dir-alias" placeholder="Folder Name (e.g. Projects)" required>
+            <select id="dir-depth" title="Search Depth">
+              <option value="1">Depth: 1</option>
+              <option value="2">Depth: 2</option>
+              <option value="3">Depth: 3</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-secondary">Add Directory</button>
+        </form>
+      </div>
+
+      <!-- Scanner Status -->
+      <div class="panel-section status-panel">
+        <h3>Portal Status</h3>
+        <div class="status-indicator">
+          <div class="status-dot green" id="status-dot"></div>
+          <span class="status-text" id="status-text">Ready</span>
+        </div>
+        <div class="progress-bar-container hidden" id="scan-progress-container">
+          <div class="progress-bar-fill" id="scan-progress-bar"></div>
+        </div>
+        <span class="progress-message" id="progress-message"></span>
+        <button class="btn btn-primary" id="btn-full-scan">Run System Scan</button>
+        <a href="/storage.html" target="_blank" class="btn btn-secondary"
+          style="display: block; text-align: center; margin-top: 8px; text-decoration: none; border: 1px solid var(--glass-border);">Storage
+          Monitor</a>
+      </div>
+    </aside>
+
+    <!-- Main Content Area: Search, Item Grid -->
+    <main class="main-content">
+
+      <!-- Top Search and Header -->
+      <header class="content-header">
+        <div class="header-inputs">
+          <div class="search-bar">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="search-input" placeholder="Search index...">
+          </div>
+
+          <div class="command-bar">
+            <span class="command-label">Pulse:</span>
+            <input type="text" id="natural-command-input"
+              placeholder="Pulse Command (e.g. 'open Chrome', 'list Z', 'read hello.txt')">
+            <button class="btn btn-primary" id="btn-run-natural-command">Run</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Category Filter Tabs -->
+      <div class="filter-tabs">
+        <button class="tab active" data-filter="all">All Items</button>
+        <button class="tab" data-filter="app">Applications</button>
+        <button class="tab" data-filter="document">Documents</button>
+        <button class="tab" data-filter="folder">Folders</button>
+        <button class="tab" data-filter="other">Other Files</button>
+        <button class="tab" data-filter="tree">File Tree</button>
+        <button class="tab" data-filter="graph">File System Graph</button>
+        <button class="tab" data-filter="wf_graph">Workflows Graph</button>
+        <button class="tab" data-filter="db">Database</button>
+      </div>
+
+      <!-- Results Grid -->
+      <div class="results-container">
+        <div class="results-grid" id="results-grid">
+          <!-- Dynamically populated cards -->
+          <div class="loading-spinner">Searching system files...</div>
+        </div>
+        <div class="graph-container hidden" id="graph-container">
+          <div class="graph-controls">
+            <div class="graph-search-wrapper">
+              <input type="text" id="graph-search-input" placeholder="Search file or folder..." autocomplete="off">
+              <button class="btn btn-primary btn-sm" id="btn-graph-search">Search</button>
+              <button class="btn btn-secondary btn-sm" id="btn-graph-search-clear" title="Clear search">✕</button>
+            </div>
+            <div class="graph-controls-right">
+              <button class="btn btn-secondary btn-sm" id="btn-graph-reset">Reset Layout</button>
+              <button class="btn btn-secondary btn-sm" id="btn-graph-fullscreen">Full Screen</button>
+              <span class="graph-hint">💡 Drag to reposition · Hover to inspect · Click to focus dependencies</span>
+            </div>
+          </div>
+          <div class="graph-body">
+            <canvas id="graph-canvas"></canvas>
+            <div class="graph-dep-panel hidden" id="graph-dep-panel">
+              <div class="gdp-header">
+                <div class="gdp-title">
+                  <span class="gdp-icon">📄</span>
+                  <span id="gdp-filename">—</span>
+                </div>
+                <button class="gdp-close" id="btn-gdp-close" title="Close">✕</button>
+              </div>
+              <div class="gdp-section">
+                <div class="gdp-section-label imports-label">
+                  <span class="gdp-dot imports-dot"></span>
+                  Files this depends on
+                  <span class="gdp-count" id="gdp-imports-count">0</span>
+                </div>
+                <ul class="gdp-list" id="gdp-imports-list">
+                  <li class="gdp-empty">No dependencies</li>
+                </ul>
+              </div>
+              <div class="gdp-divider"></div>
+              <div class="gdp-section">
+                <div class="gdp-section-label dependents-label">
+                  <span class="gdp-dot dependents-dot"></span>
+                  Files dependent on this
+                  <span class="gdp-count" id="gdp-dependents-count">0</span>
+                </div>
+                <ul class="gdp-list" id="gdp-dependents-list">
+                  <li class="gdp-empty">No dependents</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="graph-container hidden" id="wf-graph-container">
+          <div class="graph-controls">
+            <div class="graph-search-wrapper">
+              <input type="text" id="wf-graph-search-input" placeholder="Search workflow..." autocomplete="off">
+              <button class="btn btn-primary btn-sm" id="btn-wf-graph-search">Search</button>
+              <button class="btn btn-secondary btn-sm" id="btn-wf-graph-search-clear" title="Clear search">✕</button>
+            </div>
+            <div class="graph-controls-right">
+              <button class="btn btn-secondary btn-sm" id="btn-wf-graph-reset">Reset Layout</button>
+              <button class="btn btn-secondary btn-sm" id="btn-wf-graph-fullscreen">Full Screen</button>
+              <span class="graph-hint">💡 Drag to move · Hover to inspect steps · State colors: Observing (Slate),
+                Learning (Yellow), Ready (Green)</span>
+            </div>
+          </div>
+          <div class="graph-body">
+            <canvas id="wf-graph-canvas"></canvas>
+          </div>
+        </div>
+        <div class="db-container hidden" id="db-container">
+          <div class="db-controls">
+            <div class="db-control-left">
+              <label for="db-table-select">Table:</label>
+              <select id="db-table-select" class="db-select">
+                <option value="indexed_items">Indexed Items</option>
+                <option value="scanned_directories">Scanned Directories</option>
+                <option value="file_dependencies">File Dependencies</option>
+                <option value="failure_history">Failure History</option>
+                <option value="checkup_logs">Checkup Logs</option>
+              </select>
+            </div>
+            <div class="db-search-wrapper">
+              <input type="text" id="db-search-input" placeholder="Search table records...">
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btn-db-refresh">Refresh</button>
+            <button class="btn btn-secondary btn-sm" id="btn-db-fullscreen">Full Screen</button>
+          </div>
+          <div class="db-table-wrapper">
+            <table class="db-table" id="db-table">
+              <thead>
+                <!-- Headers populated dynamically -->
+              </thead>
+              <tbody>
+                <!-- Rows populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-Time Auto-Checkup Logger -->
+      <footer class="checkup-logger">
+        <div class="logger-header">
+          <h3>Auto-Checkup Monitor</h3>
+          <span class="logger-badge">Live Updates</span>
+        </div>
+        <div class="logger-feed" id="logger-feed">
+          <!-- Real time logs go here -->
+          <div class="feed-item info">
+            <span class="feed-time">System Startup</span>
+            <span class="feed-msg">PowerShell control loop connected. Auto-checkup system scanning for new
+              installations.</span>
+          </div>
+        </div>
+      </footer>
+    </main>
+
+    <!-- Right Sidebar: Interactive File Control Center -->
+    <section class="control-sidebar" id="control-sidebar">
+      <div class="control-placeholder" id="control-placeholder">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round" class="placeholder-icon">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="9" y1="3" x2="9" y2="21"></line>
+        </svg>
+        <h3>Control Center</h3>
+        <p>Select a file or application to execute, inspect properties, or control using PowerShell.</p>
+      </div>
+
+      <div class="control-panel hidden" id="control-panel">
+        <div class="selected-item-header">
+          <div class="item-icon-large" id="selected-icon">
+            <!-- Large SVG icon -->
+          </div>
+          <div class="item-name-group">
+            <h2 id="selected-name">Application.exe</h2>
+            <span class="badge" id="selected-badge">Desktop App</span>
+          </div>
+        </div>
+
+        <!-- File Properties -->
+        <div class="property-list">
+          <div class="prop-row">
+            <span class="prop-label">Path</span>
+            <span class="prop-val clickable" id="selected-path" title="Click to copy path">C:\Path\...</span>
+          </div>
+          <div class="prop-row hidden" id="prop-args-row">
+            <span class="prop-label">Arguments</span>
+            <span class="prop-val" id="selected-args">--flag</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Size</span>
+            <span class="prop-val" id="selected-size">Loading...</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Modified</span>
+            <span class="prop-val" id="selected-modified">Loading...</span>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Owner</span>
+            <span class="prop-val" id="selected-owner">Loading...</span>
+          </div>
+        </div>
+
+        <!-- Action Panel -->
+        <div class="action-section">
+          <h3>Quick Commands</h3>
+          <div class="action-grid">
+            <button class="btn btn-action btn-success" id="btn-action-open">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              Launch / Open
+            </button>
+            <button class="btn btn-action" id="btn-action-rename">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+              Rename
+            </button>
+            <button class="btn btn-action btn-danger" id="btn-action-delete">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              Delete
+            </button>
+          </div>
+        </div>
+
+        <!-- Integrated PowerShell Terminal Console -->
+        <div class="terminal-section">
+          <div class="terminal-header">
+            <h3>PowerShell Executor</h3>
+            <span class="terminal-badge">Admin Context</span>
+          </div>
+          <div class="console-wrapper">
+            <div class="console-screen" id="console-screen">
+              <div class="console-line system">Ready to execute PowerShell commands on target.</div>
+            </div>
+            <div class="console-input-row">
+              <span class="console-prompt">PS></span>
+              <input type="text" id="console-input" placeholder="Get-Process | Where-Object {$_.Name -like '*'}">
+              <button class="btn-console-run" id="btn-console-run" title="Execute Command (Enter)">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-run">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="terminal-quick-links">
+            <span class="quick-label">Macros:</span>
+            <button class="macro-link" data-cmd="Get-Content -Path '{path}' -Head 20">Head 20</button>
+            <button class="macro-link" data-cmd="Get-Acl -Path '{path}' | Format-List">ACL</button>
+            <button class="macro-link" data-cmd="Test-Path -Path '{path}'">Test Path</button>
+            <button class="macro-link" data-cmd="Get-FileHash -Path '{path}' -Algorithm SHA256">SHA256</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Dependency Scan Statistics Modal -->
+  <div class="stats-modal-overlay" id="dep-stats-modal" style="display: none;">
+    <div class="stats-modal">
+      <div class="stats-modal-header">
+        <div class="stats-modal-title">
+          <span class="pulse-indicator"></span>
+          Dependency Engine 2.0 Scan Complete
+        </div>
+        <button class="stats-modal-close" onclick="closeDepStatsModal()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="stats-session-info">
+        <div class="session-id">Session: <span id="ds-session-id"></span></div>
+        <div class="session-time">Elapsed: <span id="ds-elapsed"></span>s</div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Files Scanned</div>
+          <div class="stat-value" id="ds-scanned">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Dependencies</div>
+          <div class="stat-value" id="ds-deps">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Resolved</div>
+          <div class="stat-value success" id="ds-resolved">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Unresolved</div>
+          <div class="stat-value warning" id="ds-unresolved">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Cache Hits</div>
+          <div class="stat-value primary" id="ds-hits">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Cache Misses</div>
+          <div class="stat-value secondary" id="ds-misses">0</div>
+        </div>
+      </div>
+
+      <div class="parser-perf-container">
+        <div class="parser-perf-title">Parser Performance Diagnostics</div>
+        <table class="parser-table">
+          <thead>
+            <tr>
+              <th>Language</th>
+              <th>Avg (ms)</th>
+              <th>Min (ms)</th>
+              <th>Max (ms)</th>
+            </tr>
+          </thead>
+          <tbody id="ds-parser-table">
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Toast Alert Portal -->
+  <div class="toast-portal" id="toast-portal"></div>
+  <!-- CognitiveOS Avatar -->
+  <script src="avatar.js"></script>
+  <script src="workflows_panel.js"></script>
+  <script src="workflows_graph.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LBIS Storage Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-main:         #070913;
+    --bg-panel:        rgba(18, 22, 45, 0.85);
+    --bg-panel-2:      rgba(10, 14, 35, 0.9);
+    --glass-border:    rgba(255,255,255,0.06);
+    --glass-border-hi: rgba(0,240,255,0.25);
+    --text-primary:    #f3f4f6;
+    --text-secondary:  #9ca3af;
+    --text-muted:      #4b5563;
+    --accent-cyan:     #00f0ff;
+    --accent-purple:   #a855f7;
+    --accent-green:    #10b981;
+    --accent-amber:    #f59e0b;
+    --accent-red:      #ef4444;
+    --font-sans:       'Inter', sans-serif;
+    --font-mono:       'Fira Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-main);
+    background-image: linear-gradient(135deg, #070913 0%, #0e1124 50%, #170f2b 100%);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 20px;
+    gap: 24px;
+  }
+
+  /* ── Header ─────────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    max-width: 900px;
+  }
+  .logo-circle {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: rgba(0,240,255,0.1);
+    border: 1.5px solid var(--accent-cyan);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 14px rgba(0,240,255,0.2);
+    flex-shrink: 0;
+  }
+  .logo-circle svg { width: 18px; height: 18px; color: var(--accent-cyan); }
+  .header-text h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: 0.08em; color: #fff; }
+  .header-text p  { font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 1px; }
+
+  .live-badge {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.7rem; font-family: var(--font-mono);
+    color: var(--accent-green);
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.3);
+    padding: 4px 10px; border-radius: 20px;
+  }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-green);
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── Panel ───────────────────────────────────────── */
+  .panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 900px;
+    backdrop-filter: blur(12px);
+  }
+  .panel-title {
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+
+  /* ── Main bar ────────────────────────────────────── */
+  .bar-wrap {
+    position: relative;
+    height: 36px;
+    background: rgba(0,0,0,0.35);
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .bar-fill {
+    position: absolute; top: 0; left: 0; height: 100%;
+    border-radius: 10px;
+    transition: width 0.7s cubic-bezier(0.4,0,0.2,1),
+                background 0.5s ease;
+    background: linear-gradient(90deg, #00b4d8 0%, #00f0ff 100%);
+    box-shadow: 0 0 18px rgba(0,240,255,0.35);
+  }
+  .bar-fill.warn  { background: linear-gradient(90deg, #d97706 0%, #f59e0b 100%); box-shadow: 0 0 18px rgba(245,158,11,0.35); }
+  .bar-fill.crit  { background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%); box-shadow: 0 0 18px rgba(239,68,68,0.35); animation: pulse-red 1s ease-in-out infinite; }
+  @keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:0.75} }
+
+  .bar-label {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 600; font-family: var(--font-mono);
+    color: rgba(255,255,255,0.9);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    pointer-events: none;
+  }
+
+  /* ── Stats row ───────────────────────────────────── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .stat {
+    background: var(--bg-panel-2);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .stat-val {
+    font-size: 1.3rem; font-weight: 700; font-family: var(--font-mono);
+    color: var(--accent-cyan);
+    line-height: 1;
+  }
+  .stat-val.green  { color: var(--accent-green); }
+  .stat-val.amber  { color: var(--accent-amber); }
+  .stat-val.red    { color: var(--accent-red); }
+  .stat-val.purple { color: var(--accent-purple); }
+  .stat-lbl { font-size: 0.67rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
+
+  /* ── History chart ───────────────────────────────── */
+  .chart-area {
+    margin-top: 6px;
+    position: relative;
+    height: 140px;
+  }
+  canvas#historyChart {
+    width: 100% !important;
+    height: 140px !important;
+    display: block;
+  }
+
+  /* ── Breakdown bars ──────────────────────────────── */
+  .breakdown { display: flex; flex-direction: column; gap: 10px; }
+  .bk-row { display: flex; align-items: center; gap: 12px; }
+  .bk-label {
+    width: 130px; flex-shrink: 0;
+    font-size: 0.72rem; font-family: var(--font-mono);
+    color: var(--text-secondary);
+  }
+  .bk-bar-wrap {
+    flex: 1; height: 8px; background: rgba(0,0,0,0.3);
+    border-radius: 4px; overflow: hidden;
+  }
+  .bk-bar-fill {
+    height: 100%; border-radius: 4px;
+    transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
+  }
+  .bk-val {
+    width: 60px; text-align: right; flex-shrink: 0;
+    font-size: 0.7rem; font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+
+  /* ── Log ─────────────────────────────────────────── */
+  .log-area {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    height: 110px;
+    overflow-y: auto;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    line-height: 1.7;
+    scroll-behavior: smooth;
+  }
+  .log-area::-webkit-scrollbar { width: 4px; }
+  .log-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+  .log-entry { color: var(--text-secondary); }
+  .log-entry .ts  { color: var(--text-muted); }
+  .log-entry .ok  { color: var(--accent-green); }
+  .log-entry .wrn { color: var(--accent-amber); }
+  .log-entry .err { color: var(--accent-red); }
+  .log-entry .inf { color: var(--accent-cyan); }
+
+  /* ── Status bar ──────────────────────────────────── */
+  .status-bar {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.68rem; font-family: var(--font-mono);
+    color: var(--text-muted);
+    width: 100%; max-width: 900px;
+    padding: 0 4px;
+  }
+  .status-bar span + span::before { content: '·'; margin-right: 10px; }
+  #last-updated { margin-left: auto; }
+
+  /* ── Threshold markers ───────────────────────────── */
+  .bar-markers {
+    position: relative; height: 16px; margin-top: 4px;
+  }
+  .marker {
+    position: absolute; top: 0;
+    font-size: 0.6rem; font-family: var(--font-mono);
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  .marker.warn-m { color: var(--accent-amber); }
+  .marker.crit-m { color: var(--accent-red); }
+  .marker-line {
+    position: absolute; top: -40px;
+    width: 1px; height: 36px;
+    opacity: 0.4;
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo-circle">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+    </svg>
+  </div>
+  <div class="header-text">
+    <h1>LBIS STORAGE MONITOR</h1>
+    <p>system_portal.db · 500 MB limit · local only</p>
+  </div>
+  <div class="live-badge"><div class="live-dot"></div> LIVE</div>
+</div>
+
+<!-- Main storage bar panel -->
+<div class="panel">
+  <div class="panel-title">Storage Utilisation</div>
+
+  <div class="bar-wrap" id="mainBarWrap">
+    <div class="bar-fill" id="mainBarFill" style="width:0%"></div>
+    <!-- Threshold lines drawn by JS -->
+    <div class="bar-label" id="mainBarLabel">0.000 MB / 500.0 MB</div>
+  </div>
+
+  <!-- Threshold markers -->
+  <div class="bar-markers" id="barMarkers">
+    <div class="marker warn-m" style="left:70%">
+      <div class="marker-line" style="background:var(--accent-amber)"></div>
+      70% warn
+    </div>
+    <div class="marker crit-m" style="left:90%">
+      <div class="marker-line" style="background:var(--accent-red)"></div>
+      90% crit
+    </div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="stats-row">
+    <div class="stat">
+      <span class="stat-val" id="sv-used">0.000</span>
+      <span class="stat-lbl">Used MB</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val green" id="sv-free">500.0</span>
+      <span class="stat-lbl">Free MB</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val purple" id="sv-pct">0.00%</span>
+      <span class="stat-lbl">Utilised</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val" id="sv-status" style="font-size:0.9rem">HEALTHY</span>
+      <span class="stat-lbl">Status</span>
+    </div>
+  </div>
+</div>
+
+<!-- History chart panel -->
+<div class="panel">
+  <div class="panel-title">Usage History (last 60 samples · 5 s each)</div>
+  <div class="chart-area">
+    <canvas id="historyChart"></canvas>
+  </div>
+</div>
+
+<!-- Table breakdown panel -->
+<div class="panel">
+  <div class="panel-title">Storage Breakdown by Table</div>
+  <div class="breakdown" id="breakdown">
+    <!-- Populated by JS -->
+  </div>
+</div>
+
+<!-- Event log panel -->
+<div class="panel">
+  <div class="panel-title">Storage Event Log</div>
+  <div class="log-area" id="logArea">
+    <div class="log-entry"><span class="ts">[--:--:--]</span> <span class="inf">Monitor initialised. Polling /api/storage every 5 s.</span></div>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div class="status-bar">
+  <span id="sb-samples">Samples: 0</span>
+  <span id="sb-peak">Peak: 0.000 MB</span>
+  <span id="sb-pruned">Prune events: 0</span>
+  <span id="last-updated">Last updated: —</span>
+</div>
+
+<script>
+// ── Config ─────────────────────────────────────────────────────────────────
+const LIMIT_MB     = 500;
+const WARN_PCT     = 70;
+const CRIT_PCT     = 90;
+const POLL_MS      = 5000;
+const MAX_HISTORY  = 60;
+const API_ENDPOINT = '/api/storage';  // Change if server runs on different port
+
+// Simulated mode — used when /api/storage is unreachable (demo/standalone)
+// Set to false once your server is running and /api/storage is live.
+const SIMULATE     = false;
+
+// ── State ──────────────────────────────────────────────────────────────────
+let history     = [];   // { t, used_mb, pct }
+let peakMb      = 0;
+let sampleCount = 0;
+let pruneCount  = 0;
+let simMb       = 0.12; // starting point for simulation
+
+// ── Table breakdown config ─────────────────────────────────────────────────
+const TABLES = [
+  { key: 'semantic_events',   label: 'semantic_events',   color: '#00f0ff', pct: 0 },
+  { key: 'workflow_patterns', label: 'workflow_patterns',  color: '#a855f7', pct: 0 },
+  { key: 'indexed_items',     label: 'indexed_items',      color: '#10b981', pct: 0 },
+  { key: 'token_index',       label: 'token_index',        color: '#f59e0b', pct: 0 },
+  { key: 'prefix_index',      label: 'prefix_index',       color: '#3b82f6', pct: 0 },
+  { key: 'other',             label: 'other tables',       color: '#6b7280', pct: 0 },
+];
+
+// ── Canvas chart setup ──────────────────────────────────────────────────────
+const canvas = document.getElementById('historyChart');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width  = rect.width * dpr;
+  canvas.height = 140 * dpr;
+  ctx.scale(dpr, dpr);
+  canvas.style.width  = rect.width + 'px';
+  canvas.style.height = '140px';
+}
+resizeCanvas();
+window.addEventListener('resize', () => { resizeCanvas(); drawChart(); });
+
+function drawChart() {
+  const W = canvas.clientWidth;
+  const H = canvas.clientHeight;
+  ctx.clearRect(0, 0, W * 2, H * 2);
+
+  if (history.length < 2) return;
+
+  const pad   = { top: 12, right: 8, bottom: 28, left: 44 };
+  const cW    = W - pad.left - pad.right;
+  const cH    = H - pad.top - pad.bottom;
+
+  // Grid lines
+  const levels = [0, 25, 50, 75, 100];
+  ctx.font = '9px "Fira Code"';
+  ctx.textAlign = 'right';
+  levels.forEach(pct => {
+    const y = pad.top + cH - (pct / 100) * cH;
+    ctx.strokeStyle = pct === WARN_PCT ? 'rgba(245,158,11,0.3)'
+                    : pct === CRIT_PCT ? 'rgba(239,68,68,0.3)'
+                    : 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = pct === WARN_PCT || pct === CRIT_PCT ? 1.5 : 1;
+    ctx.setLineDash(pct === WARN_PCT || pct === CRIT_PCT ? [4,3] : []);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + cW, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = pct === WARN_PCT ? '#f59e0b'
+                  : pct === CRIT_PCT ? '#ef4444'
+                  : '#4b5563';
+    ctx.fillText(pct + '%', pad.left - 4, y + 3);
+  });
+
+  // X axis time labels
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#4b5563';
+  [0, 0.5, 1].forEach(frac => {
+    const idx = Math.floor(frac * (history.length - 1));
+    const x   = pad.left + frac * cW;
+    const ago = ((history.length - 1 - idx) * POLL_MS / 1000).toFixed(0);
+    ctx.fillText(ago === '0' ? 'now' : '-' + ago + 's', x, H - 6);
+  });
+
+  // Fill
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH);
+  grad.addColorStop(0,   'rgba(0,240,255,0.25)');
+  grad.addColorStop(1,   'rgba(0,240,255,0.01)');
+
+  ctx.beginPath();
+  history.forEach((pt, i) => {
+    const x = pad.left + (i / (MAX_HISTORY - 1)) * cW;
+    const y = pad.top + cH - (pt.pct / 100) * cH;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.lineTo(pad.left + ((history.length - 1) / (MAX_HISTORY - 1)) * cW, pad.top + cH);
+  ctx.lineTo(pad.left, pad.top + cH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = '#00f0ff';
+  ctx.lineWidth   = 2;
+  ctx.lineJoin    = 'round';
+  history.forEach((pt, i) => {
+    const x = pad.left + (i / (MAX_HISTORY - 1)) * cW;
+    const y = pad.top + cH - (pt.pct / 100) * cH;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Latest dot
+  const last = history[history.length - 1];
+  const lx   = pad.left + ((history.length - 1) / (MAX_HISTORY - 1)) * cW;
+  const ly   = pad.top + cH - (last.pct / 100) * cH;
+  ctx.beginPath();
+  ctx.arc(lx, ly, 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#00f0ff';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,240,255,0.4)';
+  ctx.lineWidth = 6;
+  ctx.stroke();
+}
+
+// ── Breakdown ──────────────────────────────────────────────────────────────
+function updateBreakdown(usedMb, tablePcts) {
+  const container = document.getElementById('breakdown');
+  container.innerHTML = '';
+
+  TABLES.forEach((tbl, i) => {
+    const pct = tablePcts ? tablePcts[i] : simulateTablePct(tbl.key, usedMb);
+    const mb  = (usedMb * pct / 100).toFixed(3);
+
+    const row = document.createElement('div');
+    row.className = 'bk-row';
+    row.innerHTML = `
+      <span class="bk-label">${tbl.label}</span>
+      <div class="bk-bar-wrap">
+        <div class="bk-bar-fill" style="width:${pct.toFixed(1)}%; background:${tbl.color}; opacity:0.85;"></div>
+      </div>
+      <span class="bk-val">${mb} MB</span>
+    `;
+    container.appendChild(row);
+  });
+}
+
+// ── Log ────────────────────────────────────────────────────────────────────
+function log(msg, type = 'inf') {
+  const area = document.getElementById('logArea');
+  const now  = new Date();
+  const ts   = now.toTimeString().slice(0, 8);
+  const div  = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="ts">[${ts}]</span> <span class="${type}">${msg}</span>`;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+
+  // Keep max 200 lines
+  while (area.children.length > 200) area.removeChild(area.firstChild);
+}
+
+// ── Main bar update ────────────────────────────────────────────────────────
+function updateMainBar(pct, usedMb, freeMb) {
+  const fill   = document.getElementById('mainBarFill');
+  const label  = document.getElementById('mainBarLabel');
+  const svUsed = document.getElementById('sv-used');
+  const svFree = document.getElementById('sv-free');
+  const svPct  = document.getElementById('sv-pct');
+  const svStat = document.getElementById('sv-status');
+
+  const clamped = Math.min(pct, 100);
+  fill.style.width = clamped + '%';
+  fill.className   = 'bar-fill' + (pct >= CRIT_PCT ? ' crit' : pct >= WARN_PCT ? ' warn' : '');
+
+  label.textContent = `${usedMb.toFixed(3)} MB / ${LIMIT_MB}.0 MB`;
+  svUsed.textContent = usedMb.toFixed(3);
+  svFree.textContent = freeMb.toFixed(3);
+  svPct.textContent  = pct.toFixed(2) + '%';
+
+  svUsed.className = 'stat-val' + (pct >= CRIT_PCT ? ' red' : pct >= WARN_PCT ? ' amber' : '');
+  svFree.className = 'stat-val' + (pct >= CRIT_PCT ? ' red' : pct >= WARN_PCT ? ' amber' : ' green');
+  svPct.className  = 'stat-val purple';
+
+  if (pct >= CRIT_PCT) {
+    svStat.textContent = 'CRITICAL';
+    svStat.className   = 'stat-val red';
+  } else if (pct >= WARN_PCT) {
+    svStat.textContent = 'WARNING';
+    svStat.className   = 'stat-val amber';
+  } else {
+    svStat.textContent = 'HEALTHY';
+    svStat.className   = 'stat-val green';
+  }
+}
+
+// ── Simulation (runs when /api/storage unreachable) ────────────────────────
+function simulateTick() {
+  // Simulate realistic slow growth with occasional prune events
+  const growRate = 0.04 + Math.random() * 0.06;  // 0.04–0.10 MB per tick
+  simMb = Math.min(simMb + growRate, LIMIT_MB);
+
+  const pct    = (simMb / LIMIT_MB) * 100;
+  const freeMb = LIMIT_MB - simMb;
+
+  // Simulate pruning at 90%
+  if (pct >= 90) {
+    pruneCount++;
+    log(`Storage limit approached (${pct.toFixed(1)}%). Pruning semantic_events...`, 'wrn');
+    simMb = LIMIT_MB * 0.82;  // Prune back to 82%
+    log(`Pruned. Storage recovered to ${((simMb/LIMIT_MB)*100).toFixed(1)}%.`, 'ok');
+  }
+
+  processData({ used_mb: simMb, limit_mb: LIMIT_MB, percent_used: pct, remaining_mb: freeMb });
+}
+
+// ── Real API fetch ─────────────────────────────────────────────────────────
+async function fetchReal() {
+  try {
+    const res  = await fetch(API_ENDPOINT);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    processData(data);
+  } catch (err) {
+    log(`API unreachable (${err.message}). Running in demo mode.`, 'wrn');
+    simulateTick();
+  }
+}
+
+// ── Process data ───────────────────────────────────────────────────────────
+function processData(data) {
+  const usedMb  = data.used_mb   || 0;
+  const limitMb = data.limit_mb  || LIMIT_MB;
+  const pct     = data.percent_used || (usedMb / limitMb) * 100;
+  const freeMb  = data.remaining_mb || (limitMb - usedMb);
+
+  sampleCount++;
+  if (usedMb > peakMb) peakMb = usedMb;
+
+  // Push to history ring
+  history.push({ t: Date.now(), used_mb: usedMb, pct });
+  if (history.length > MAX_HISTORY) history.shift();
+
+  // Update UI
+  updateMainBar(pct, usedMb, freeMb);
+  updateBreakdown(usedMb, data.table_pcts || null);
+  drawChart();
+
+  // Status bar
+  document.getElementById('sb-samples').textContent  = `Samples: ${sampleCount}`;
+  document.getElementById('sb-peak').textContent      = `Peak: ${peakMb.toFixed(3)} MB`;
+  document.getElementById('sb-pruned').textContent    = `Prune events: ${pruneCount}`;
+  document.getElementById('last-updated').textContent = `Last updated: ${new Date().toTimeString().slice(0,8)}`;
+
+  // Threshold crossing logs
+  if (pct >= CRIT_PCT && sampleCount % 5 === 0) {
+    log(`CRITICAL: Storage at ${pct.toFixed(1)}% of ${limitMb} MB limit.`, 'err');
+  } else if (pct >= WARN_PCT && sampleCount % 10 === 0) {
+    log(`Warning: Storage at ${pct.toFixed(1)}% — approaching limit.`, 'wrn');
+  } else if (sampleCount === 1) {
+    log(`Monitor connected. DB at ${usedMb.toFixed(3)} MB (${pct.toFixed(2)}%).`, 'ok');
+  }
+
+  if (data.over_limit) {
+    pruneCount++;
+    log('Storage limit enforced — oldest semantic_events pruned.', 'wrn');
+  }
+}
+
+// ── Poll ───────────────────────────────────────────────────────────────────
+function tick() {
+  if (SIMULATE) {
+    simulateTick();
+  } else {
+    fetchReal();
+  }
+}
+
+// Initial tick + interval
+tick();
+setInterval(tick, POLL_MS);
+
+// Initial breakdown render
+updateBreakdown(0.12, null);
+log('Waiting for storage data from /api/storage...', 'inf');
+</script>
+</body>
+</html>

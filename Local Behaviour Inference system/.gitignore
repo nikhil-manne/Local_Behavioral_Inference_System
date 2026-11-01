@@ -1,0 +1,100 @@
+# ── Dependencies ─────────────────────────────────────────
+/node_modules/
+
+# ── SQLite Databases & Data Files ────────────────────────
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.db-tmp
+*.sqlite
+*.sqlite3
+system_portal*.db
+system_test*.db
+
+# ── Compiled Binaries & Build Artifacts ──────────────────
+# Note: input_tool.exe is compiled from input_tool.cs on server startup
+input_tool.exe
+*.exe
+*.dll
+*.obj
+*.pdb
+/bin/
+/obj/
+/dist/
+/build/
+
+# ── Runtime State, Caches & App Data ─────────────────────
+/.electron_data/
+/.agents/
+/.execution_session.json
+.cache/
+.turbo/
+
+# ── Logs, Terminal Traces & Debug Dumps ───────────────────
+*.log
+server.log
+server.err
+server_interactive.log
+cmd_history.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+semantic_events_dump.txt
+*_dump.txt
+*dump*.txt
+output.txt
+
+# ── Environment & Secrets ────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── OS & IDE / Editor Metadata ───────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# ── Temporary & Backup Files ─────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.old
+*~
+
+server_interactive.log
+cmd_history.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+semantic_events_dump.txt
+*_dump.txt
+*dump*.txt
+output.txt
+
+# ── Environment & Secrets ────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── OS & IDE / Editor Metadata ───────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# ── Temporary & Backup Files ─────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.old
+*~

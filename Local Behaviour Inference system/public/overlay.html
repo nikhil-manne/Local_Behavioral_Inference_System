@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pulse Overlay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent !important;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      pointer-events: none !important; /* Allow click-through on transparent areas */
+    }
+
+    /* Force UI elements to accept clicks */
+    #workflowsPanel, 
+    #workflowToggleBtn, 
+    #workflowDetailsModal, 
+    #cognitiveAvatar,
+    #toast-portal,
+    #kill-btn-container,
+    .kill-workflow-btn,
+    .wfBtn,
+    .cogBtn {
+      pointer-events: all !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Global Toast Alert Portal -->
+  <div class="toast-portal" id="toast-portal"></div>
+
+  <!-- Minimal SSE client to receive live notifications/suggestions -->
+  <script>
+    const eventSource = new EventSource('/api/events');
+    
+    eventSource.addEventListener('cognitive-suggestion', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (window.cognitiveShowSuggestion) {
+          window.cognitiveShowSuggestion(data);
+        }
+      } catch (err) {
+        console.error('Error handling suggestion:', err);
+      }
+    });
+
+    eventSource.addEventListener('scan-complete', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (window.cognitiveShowSuccess) {
+          window.cognitiveShowSuccess(data.message);
+        } else if (window.showToast) {
+          window.showToast('Scan Complete', data.message);
+        }
+      } catch (err) {}
+    });
+
+    eventSource.addEventListener('workflows-changed', (e) => {
+      if (window.loadWorkflows) {
+        window.loadWorkflows();
+      }
+    });
+
+    window.cognitiveShowSuccess = function(message) {
+      if (window.showToast) {
+        window.showToast('Success', message);
+      } else {
+        alert(message);
+      }
+    }
+
+    eventSource.addEventListener('workflow-started', (e) => {
+      document.body.classList.add('workflow-active');
+      document.getElementById('running-border').style.display = 'block';
+      document.getElementById('kill-btn-container').classList.add('visible');
+      if (window.electronAPI && window.electronAPI.setWorkflowActive) {
+        window.electronAPI.setWorkflowActive(true);
+      }
+    });
+
+    eventSource.addEventListener('workflow-stopped', (e) => {
+      document.body.classList.remove('workflow-active');
+      document.getElementById('running-border').style.display = 'none';
+      document.getElementById('kill-btn-container').classList.remove('visible');
+      if (window.electronAPI && window.electronAPI.setWorkflowActive) {
+        window.electronAPI.setWorkflowActive(false);
+      }
+    });
+
+    async function killRunningWorkflow() {
+      try {
+        const btn = document.getElementById('kill-btn');
+        btn.disabled = true;
+        btn.textContent = 'Stopping...';
+        await fetch('/api/cognitive/workflow/abort', { method: 'POST' });
+      } catch (err) {
+        console.error('Failed to abort workflow:', err);
+      } finally {
+        const btn = document.getElementById('kill-btn');
+        btn.disabled = false;
+        btn.innerHTML = '<span class="kill-icon"></span> KILL WORKFLOW';
+      }
+    }
+
+    // Electron click-through mouse event toggling
+    if (window.electronAPI) {
+      window.addEventListener('mousemove', (e) => {
+        // If a workflow is actively running, we only allow clicks on the float kill button
+        if (document.body.classList.contains('workflow-active')) {
+          const killBtn = document.getElementById('kill-btn');
+          if (e.target === killBtn || killBtn.contains(e.target)) {
+            window.electronAPI.setIgnoreMouseEvents(false);
+          } else {
+            window.electronAPI.setIgnoreMouseEvents(true);
+          }
+          return;
+        }
+
+        // Standard idle overlay click-through logic
+        if (e.target === document.documentElement || e.target === document.body) {
+          window.electronAPI.setIgnoreMouseEvents(true);
+        } else {
+          window.electronAPI.setIgnoreMouseEvents(false);
+        }
+      });
+      
+      // Default to click-through on load
+      window.electronAPI.setIgnoreMouseEvents(true);
+    }
+  </script>
+
+  <!-- Workflow Running Glow Border & Kill Button -->
+  <div class="workflow-running-border" id="running-border" style="display: none;"></div>
+  <div class="kill-btn-container" id="kill-btn-container">
+    <button class="kill-workflow-btn" id="kill-btn" onclick="killRunningWorkflow()">
+      <span class="kill-icon"></span> KILL WORKFLOW
+    </button>
+  </div>
+
+  <!-- Load Avatar and Workflows Panel -->
+  <script src="avatar.js"></script>
+  <script src="workflows_panel.js"></script>
+</body>
+</html>
